@@ -1,0 +1,28 @@
+{
+  "name": "d3_ts",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "tsc && concurrently \"tsc -w\" \"lite-server\" ",
+    "lite": "lite-server",
+    "postinstall": "typings install",
+    "tsc": "tsc",
+    "tsc:w": "tsc -w",
+    "typings": "typings",
+    "webpack": "webpack --help"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^3.0.0",
+    "lite-server": "^2.2.2",
+    "typescript": "^2.0.3",
+    "typings": "^1.4.0"
+  },
+  "dependencies": {
+    "d3": "^3.0.0",
+    "jquery": "^3.1.1",
+    "requirejs": "^2.3.2",
+    "systemjs": "^0.19.39",
+    "typings": "^1.4.0",
+    "webpack": "^1.13.2"
+  }
+}
