@@ -2,8 +2,6 @@
   "name": "d3_ts",
   "dependencies": {},
   "globalDependencies": {
-    "d3": "registry:dt/d3#0.0.0+20160907005744",
-    "jquery": "registry:dt/jquery#1.10.0+20160929162922",
-    "require": "registry:dt/require#2.1.20+20160919185614"
+    "d3": "registry:dt/d3#0.0.0+20160907005744"
   }
 }

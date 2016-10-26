@@ -1,9 +1,0 @@
-svg{
-    border: 1px solid black
-}
-svg circle{
-    cursor: pointer
-}
-svg path.link{
-    cursor: pointer
-}

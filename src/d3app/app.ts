@@ -1,15 +1,20 @@
 import * as d3 from 'd3';
-//import * as $ from 'jquery';
 import { nodes , edges} from '../data/data';
+import { store } from '../index';
+import { selectAction } from '../actions/actions';
+import '../css/app.css'
 
 interface d3ForceNode extends d3.layout.force.Node{name:string}//外部声明文件d3.layout.force.Node接口少了name属性。
 type d3ForceEdge = d3.layout.force.Link<d3ForceNode>;
 type d3ForceNodeUpdate = d3.selection.Update<d3ForceNode>;
 type d3ForceEdgeUpdate = d3.selection.Update<d3ForceEdge>;
 
-let width:number =800;
-let height:number = 800;
+let width:number|string =800;
+let height:number|string = 800;
 let nodeR:number = 40;
+let svg:d3.Selection<any>;
+let defs:d3.Selection<any>;
+let arrowMarker:d3.Selection<any>;
 let zoomTranslate:number[] = [0,0];
 let zoomScale:number = 1;
 let svgEdgesUpdate:d3ForceEdgeUpdate;
@@ -23,6 +28,8 @@ let zoom = d3.behavior.zoom()
     .scaleExtent([0.1,10])
     .on('zoom',()=>{
         let e = d3.event as d3.ZoomEvent;
+        if((e.sourceEvent as MouseEvent).which == 3) return;//右键不绽放
+
         zoomTranslate = e.translate;
         zoomScale = e.scale;
         svg.attr('transform', `translate(${zoomTranslate})scale(${zoomScale})`)
@@ -30,44 +37,9 @@ let zoom = d3.behavior.zoom()
         svg.selectAll('path.link').attr('transform', `translate(${zoomTranslate})scale(${zoomScale})`);
         svg.selectAll('text').attr('transform', `translate(${zoomTranslate})scale(${zoomScale})`);
     });
- 
-let svg = d3.select('body')
-    .append('svg')
-    .attr('width',width)
-    .attr('height',height)
-    .attr('oncontextmenu','return false')
-    .on('mousedown',()=>{
-        let e = d3.event as MouseEvent;
-        if(e.which==3){
-            console.log([d3.mouse(e.target),[pageXOffset,pageYOffset]])
-            addNode(d3.mouse(e.target));
-        }else if(e.which == 1){
-            let edges:d3.Selection<d3ForceEdge> = d3.selectAll('path.link');
-            let nodes:d3.Selection<d3ForceNode> = d3.selectAll('circle');
-            edges.on('mouseout',subtractEdge);
-            nodes.on('mouseout',subtractNode)
-        }
-    })
-    .on('mouseup',()=>{
-         d3.selectAll('path.link').on('mouseout',null);
-         d3.selectAll('circle').on('mouseout',null)
-    })
-    .call(zoom);//带缩放行为
-let defs = svg.append('defs');
-let arrowMarker = defs.append('marker')
-    .attr('id', 'arrow')
-    .attr('markerUnits', 'strokeWidth')
-    .attr('markerWidth', '12')
-    .attr('markerHeight', '12')
-    .attr('refX', '10')
-    .attr('refY', '6')
-    .attr('orient', 'auto');
 
-arrowMarker.append('path')
-    .attr('d','M2,2 L10,6 L2,10 Z')
-    .attr('fill','#666')
-
-let force = d3.layout.force().nodes(nodes)
+let force = d3.layout.force()
+    .nodes(nodes)
     .links(edges)
     .size([width,height])
     .linkDistance(150)
@@ -77,7 +49,6 @@ let color = d3.scale.category20();
 let nodesForced:d3ForceNode[] = force.nodes() as d3ForceNode[];
 let edgesForced:d3ForceEdge[] = force.links() as d3ForceEdge[];
 
-render();
 function render(){
     force.start();//新加的元素都要经过这步才能让这些元素联动
     svgEdgesUpdate = svg.selectAll('path.link').data(edgesForced) as d3ForceEdgeUpdate;
@@ -107,10 +78,13 @@ function render(){
         .on('mousedown',function(d){
             let e = d3.event as MouseEvent;
             e.stopPropagation();
-            if(e.which !== 3) return false;
-            d3.select(this).call(force.drag);//阻止右键拖拽
-            linkingStartNode = d;
-            linkingOperaton();
+            if(e.which == 3){
+                d3.select(this).call(force.drag);//阻止右键拖拽
+                linkingStartNode = d;
+                linkingOperaton();
+            }else if(e.which==1){
+                dispatchData(d3.select(e.target).datum())
+            }
         })
         .call(force.drag)//带拖拽行为
         .attr('transform', `translate(${zoomTranslate})scale(${zoomScale})`)
@@ -208,3 +182,62 @@ function linkingOperaton(){
             mousePoint = [e.pageX-10,e.pageY-10]
         })
 }
+
+function dispatchData(nodeSelected:d3ForceNode){
+    let {name} = nodeSelected;
+    let type = "城市";
+    let targets:{name:string,type:string}[] = [];
+    for(let node of svgEdgesUpdate.data()){
+        if(node.source==nodeSelected){
+            targets.push({name:node.target.name,type:'城市'})
+        }
+    }
+    store.dispatch(selectAction({name,type,targets}))
+}
+
+function init(container:string,w:number|string,h:number|string){
+    width = w;
+    height = h;
+    svg = d3.select(container)
+        .append('svg')
+        .attr('class',"panel panel-default")
+        .attr('width',width)
+        .attr('height',height)
+        .attr('oncontextmenu','return false')
+        .on('mousedown',()=>{
+            let e = d3.event as MouseEvent;
+            if(e.which==3){
+                if(!e.shiftKey){
+                    addNode(d3.mouse(e.target))
+                }else{//按下shift进行删除
+                    let edges:d3.Selection<d3ForceEdge> = d3.selectAll('path.link');
+                    let nodes:d3.Selection<d3ForceNode> = d3.selectAll('circle');
+                    edges.on('mouseout',subtractEdge);
+                    nodes.on('mouseout',subtractNode)
+                }
+            }
+        })
+        .on('mouseup',()=>{
+            d3.selectAll('path.link').on('mouseout',null);
+            d3.selectAll('circle').on('mouseout',null)
+        })
+        .call(zoom);//带缩放行为
+    defs = svg.append('defs');
+    arrowMarker = defs.append('marker')
+        .attr('id', 'arrow')
+        .attr('markerUnits', 'strokeWidth')
+        .attr('markerWidth', '12')
+        .attr('markerHeight', '12')
+        .attr('refX', '10')
+        .attr('refY', '6')
+        .attr('orient', 'auto');
+    arrowMarker.append('path')
+        .attr('d','M2,2 L10,6 L2,10 Z')
+        .attr('fill','#666')
+}
+
+export = function createDiagram(container:string,w:number|string,h:number|string){
+    init(container,w,h)
+    render();
+}
+ 
